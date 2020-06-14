@@ -1,0 +1,96 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  #- name: Update apt repo and cache on all Debian/Ubuntu boxes
+  #  apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+  #- name: Upgrade all packages on servers
+  #  apt: upgrade=dist force_apt_get=yes
+
+  #- name: Check if a reboot is needed on all servers
+  #  register: reboot_required_file
+  #  stat: path=/var/run/reboot-required get_md5=no
+
+  #- name: Reboot the box if kernel updated
+  #  shell: "sleep 5 && reboot"
+  #  async: 1
+  #  poll: 0
+  #  when: reboot_required_file.stat.exists
+
+  #- name: Wait for the reboot to complete if there was a change.
+  #  wait_for_connection:
+  #    connect_timeout: 20
+  #    sleep: 5
+  #    delay: 5
+  #    timeout: 300
+  #  when: reboot_required_file.stat.exists
+
+  - name: Install packages that allow apt to be used over HTTPS
+    apt:
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+      - ca-certificates
+      - curl
+      - python-apt
+      - bash-completion
+
+  - name: Add an apt signing key for Docker
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add apt repository for stable version
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+      state: present
+
+  - name: Install docker and its dependecies
+    apt: 
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+      - docker-ce 
+      - docker-ce-cli 
+      - containerd.io
+    notify:
+      - docker status
+
+  - name: Add vagrant user to docker group
+    user:
+      name: vagrant
+      group: docker
+
+  - name: Remove swapfile from /etc/fstab
+    mount:
+      name: "{{ item }}"
+      fstype: swap
+      state: absent
+    with_items:
+      - swap
+      - none
+
+  - name: Disable swap
+    command: swapoff -a
+    when: ansible_swaptotal_mb > 0
+
+  - name: Install docker-compose
+    shell: curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  
+  - name: Apply permission to docker-compose binary
+    command: chmod +x /usr/local/bin/docker-compose
+  
+  - name: Adding code completion to docker
+    command:  curl -L https://raw.githubusercontent.com/docker/machine/v0.16.0/contrib/completion/bash/docker-machine.bash -o /etc/bash_completion.d/docker-machine
+
+  - name: Adding code completion to docker-compose
+    command:  curl -L https://raw.githubusercontent.com/docker/compose/1.26.0/contrib/completion/bash/docker-compose -o /etc/bash_completion.d/docker-compose
+
+  handlers:
+      - name: docker status
+        service: name=docker state=started

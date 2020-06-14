@@ -2,30 +2,6 @@
 - hosts: all
   become: true
   tasks:
-  #- name: Update apt repo and cache on all Debian/Ubuntu boxes
-  #  apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
-
-  #- name: Upgrade all packages on servers
-  #  apt: upgrade=dist force_apt_get=yes
-
-  #- name: Check if a reboot is needed on all servers
-  #  register: reboot_required_file
-  #  stat: path=/var/run/reboot-required get_md5=no
-
-  #- name: Reboot the box if kernel updated
-  #  shell: "sleep 5 && reboot"
-  #  async: 1
-  #  poll: 0
-  #  when: reboot_required_file.stat.exists
-
-  #- name: Wait for the reboot to complete if there was a change.
-  #  wait_for_connection:
-  #    connect_timeout: 20
-  #    sleep: 5
-  #    delay: 5
-  #    timeout: 300
-  #  when: reboot_required_file.stat.exists
-
   - name: Install packages that allow apt to be used over HTTPS
     apt:
       name: "{{ packages }}"
